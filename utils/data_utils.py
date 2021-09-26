@@ -1,8 +1,7 @@
 import logging
 import os
-import torch
 
-from torchvision import transforms, datasets
+from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
 from torch.utils.data import DataLoader, RandomSampler, DistributedSampler, SequentialSampler
 
