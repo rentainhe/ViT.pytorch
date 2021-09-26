@@ -8,11 +8,12 @@ We modify the original repo from the following aspects:
 - [ ] Add `train.sh` for a quick start instead of long training scripts
 - [ ] Add `Resume Training`
 - [ ] Add `Contiguous Tensor` for faster training
-- [ ] Rebuild config file in a cleaner way
+- [ ] ~~Rebuild config file in a cleaner way~~
 
 **Dataset**
-- [ ] Add `Imagenet Dataloader` for imagenet fine-tune experiments
-
+- [x] Add `Imagenet Dataloader` for imagenet fine-tune experiments
+- [x] Rebuild dataloader to make it cleaner, see [data_utils.py](utils/data_utils.py)
+ 
 **README**
 - [ ] Decouple README file to make it cleaner
 - [ ] Add `Imagenet2012` fine-tune baseline, see [MODEL_ZOO.md](MODEL_ZOO.md)
