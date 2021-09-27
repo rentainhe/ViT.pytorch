@@ -44,13 +44,6 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 
-def ckpt_proc(state_dict):
-    state_dict_new = {}
-    for key in state_dict:
-        state_dict_new['module.' + key] = state_dict[key]
-    return state_dict_new
-
-
 def simple_accuracy(preds, labels):
     return (preds == labels).mean()
 
@@ -62,18 +55,37 @@ def save_model(args, model):
     logger.info("Saved model checkpoint to [DIR: %s]", args.output_dir)
 
 
-def save_checkpoint(args, model, optimizer, steps):
+def save_checkpoint(args, model, optimizer, scheduler, steps, best_acc, checkpoint_name='best'):
     model_to_save = model.module if hasattr(model, 'module') else model
     state = {
         'state_dict': model_to_save.state_dict(),
         'optimizer': optimizer.state_dict(),
-        'steps': steps
+        'scheduler': scheduler.state_dict(),
+        'steps': steps,
+        'best_acc': best_acc,
     }
-    model_checkpoint = os.path.join(args.output_dir, "%s_checkpoint.bin" % args.name)
+    root = os.path.join(args.output_dir, args.name)
+    os.makedirs(root, exist_ok=True)
+    model_checkpoint = os.path.join(root, "%s_checkpoint.ckpt" % checkpoint_name)
     torch.save(state, model_checkpoint)
     logger.info("Saved model checkpoint to [DIR: %s]", args.output_dir)
 
-
+def load_from_checkpoint(args, model, optimizer, scheduler):
+    if not args.resume_path:
+        raise NotImplementedError("args.resume_path must not be None")
+    # if args.local_rank not in [-1, 0]:
+    #         torch.distributed.barrier()
+    ckpt = torch.load(args.resume_path, map_location=torch.device("cpu"))
+    model.load_state_dict(ckpt['state_dict'])
+    optimizer.load_state_dict(ckpt['optimizer'])
+    scheduler.load_state_dict(ckpt['scheduler'])
+    start_steps = ckpt['steps']
+    best_acc = ckpt['best_acc']
+    print("Finish!")
+    # if args.local_rank == 0:
+    #         torch.distributed.barrier()
+    return model, optimizer, scheduler, start_steps, best_acc
+    
 
 def setup(args):
     # Prepare model
@@ -87,15 +99,32 @@ def setup(args):
         num_classes = 1000
 
     model = VisionTransformer(config, args.img_size, zero_head=True, num_classes=num_classes)
-    # model.load_from(np.load(args.pretrained_dir))
-    # model.to(args.device)
-    num_params = count_parameters(model)
+    model.to(args.device)
+    optimizer = torch.optim.SGD(model.parameters(),
+                                lr=args.learning_rate,
+                                momentum=0.9,
+                                weight_decay=args.weight_decay)
+    
+    if args.decay_type == "cosine":
+        scheduler = WarmupCosineSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=args.num_steps)
+    else:
+        scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=args.num_steps)
+    
+    start_steps, best_acc = 0, 0
+    if args.resume_path:
+        print("Resume from {}".format(args.resume_path))
+        model, optimizer, scheduler, start_steps, best_acc = load_from_checkpoint(args, model, optimizer, scheduler)
+    else:
+        if args.pretrained_dir:
+            print("Load from pretrained weight for fine-tuning")
+            model.load_from(np.load(args.pretrained_dir))
 
+    num_params = count_parameters(model)
     logger.info("{}".format(config))
     logger.info("Training parameters %s", args)
     logger.info("Total Parameter: \t%2.1fM" % num_params)
     print(num_params)
-    return args, model
+    return args, model, optimizer, scheduler, start_steps, best_acc
 
 
 def count_parameters(model):
@@ -163,28 +192,19 @@ def valid(args, model, writer, test_loader, global_step):
     return accuracy
 
 
-def train(args, model):
+def train(args, model, optimizer, scheduler, start_steps, best_acc):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         os.makedirs(args.output_dir, exist_ok=True)
         writer = SummaryWriter(log_dir=os.path.join("logs", args.name))
 
-    args.train_batch_size = args.train_batch_size // args.gradient_accumulation_steps
+    # scale train_batch_size to save GPU memory cost
+    args.train_batch_size = args.train_batch_size // (args.gradient_accumulation_steps * torch.distributed.get_world_size())
 
     # Prepare dataset
     train_loader, test_loader = get_loader(args)
-
-    # Prepare optimizer and scheduler
-    optimizer = torch.optim.SGD(model.parameters(),
-                                lr=args.learning_rate,
-                                momentum=0.9,
-                                weight_decay=args.weight_decay)
     t_total = args.num_steps
-    if args.decay_type == "cosine":
-        scheduler = WarmupCosineSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
-    else:
-        scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=t_total)
-
+    
     if args.fp16:
         model, optimizer = amp.initialize(models=model,
                                           optimizers=optimizer,
@@ -207,7 +227,9 @@ def train(args, model):
     model.zero_grad()
     set_seed(args)  # Added here for reproducibility (even between python 2 and 3)
     losses = AverageMeter()
-    global_step, best_acc = 0, 0
+
+    global_step = start_steps
+    best_acc = best_acc
     while True:
         model.train()
         epoch_iterator = tqdm(train_loader,
@@ -235,6 +257,7 @@ def train(args, model):
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 scheduler.step()
+                # from ipdb import set_trace; set_trace()
                 optimizer.step()
                 optimizer.zero_grad()
                 global_step += 1
@@ -248,8 +271,9 @@ def train(args, model):
                 if global_step % args.eval_every == 0 and args.local_rank in [-1, 0]:
                     accuracy = valid(args, model, writer, test_loader, global_step)
                     if best_acc < accuracy:
-                        save_model(args, model)
+                        save_checkpoint(args, model, optimizer, scheduler, global_step, best_acc, checkpoint_name='best')
                         best_acc = accuracy
+                    save_checkpoint(args, model, optimizer, scheduler, global_step, best_acc, checkpoint_name='steps={}'.format(global_step))
                     model.train()
 
                 if global_step % t_total == 0:
@@ -271,14 +295,18 @@ def main():
                         help="Name of this run. Used for monitoring.")
     parser.add_argument("--dataset", choices=["cifar10", "cifar100"], default="cifar10",
                         help="Which downstream task.")
+    parser.add_argument("--data_dir", type=str, default="./data",
+                        help="Where to load data")
+    parser.add_argument("--num_workers", type=int, default=8,
+                        help="dataloader arguments")
     parser.add_argument("--model_type", choices=["ViT-B_16", "ViT-B_32", "ViT-L_16",
                                                  "ViT-L_32", "ViT-H_14", "R50-ViT-B_16"],
                         default="ViT-B_16",
                         help="Which variant to use.")
-    parser.add_argument("--resume", action='store_true',
+    parser.add_argument("--gpu", type=str, default="0",
+                        help="choose gpus for training, e.g., --gpu 0,1,2,3 ")
+    parser.add_argument("--resume_path", type=str, default="",
                         help="whether to resume training from a specific checkpoint")
-    parser.add_argument("--ckpt_path", default="", type=str,
-                        help="checkpoint path for resume training")
     parser.add_argument("--pretrained_dir", type=str, default="checkpoint/ViT-B_16.npz",
                         help="Where to load the pretrained ViT models, deprecated when resume is True")
     parser.add_argument("--output_dir", default="output", type=str,
@@ -325,6 +353,7 @@ def main():
     args = parser.parse_args()
 
     # Setup CUDA, GPU & distributed training
+    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     if args.local_rank == -1:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         args.n_gpu = torch.cuda.device_count()
@@ -347,10 +376,10 @@ def main():
     set_seed(args)
 
     # Model & Tokenizer Setup
-    args, model = setup(args)
+    args, model, optimizer, scheduler, start_steps, best_acc = setup(args)
 
     # Training
-    train(args, model)
+    train(args, model, optimizer, scheduler, start_steps, best_acc)
 
 
 if __name__ == "__main__":
