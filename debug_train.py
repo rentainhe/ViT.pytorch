@@ -70,10 +70,10 @@ def save_checkpoint(args, model, optimizer, scheduler, steps, best_acc, checkpoi
     logger.info("Saved model checkpoint to [DIR: %s]", args.output_dir)
 
 def load_from_checkpoint(args, model, optimizer, scheduler):
-    if not args.ckpt_path:
-        raise NotImplementedError("args.ckpt_path must not be None")
-    print("Loading ckpt from {}".format(args.ckpt_path))
-    ckpt = torch.load(args.ckpt_path)
+    if not args.resume_path:
+        raise NotImplementedError("args.resume_path must not be None")
+    print("Loading ckpt from {}".format(args.resume_path))
+    ckpt = torch.load(args.resume_path)
     model.load_state_dict(ckpt['state_dict'])
     optimizer.load_state_dict(ckpt['optimizer'])
     scheduler.load_state_dict(ckpt['scheduler'])
@@ -104,12 +104,13 @@ def setup(args):
     else:
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=args.num_steps)
     start_steps, best_acc = 0, 0
-    if args.resume:
-        print("args.pretrained_dir is deprecated when args.resume is True")
+    if args.resume_path:
+        print("args.pretrained_dir is deprecated when args.resume_path is not None")
         model, optimizer, scheduler, start_steps, best_acc = load_from_checkpoint(args, model, optimizer, scheduler)
     else:
-        print("Load from pretrained weight for fine-tuning")
-        model.load_from(np.load(args.pretrained_dir))
+        # if args.pretrained_dir:
+        #     print("Load from pretrained weight for fine-tuning")
+        #     model.load_from(np.load(args.pretrained_dir))
         model.to(args.device)
 
     num_params = count_parameters(model)
@@ -287,16 +288,18 @@ def main():
                         help="Name of this run. Used for monitoring.")
     parser.add_argument("--dataset", choices=["cifar10", "cifar100"], default="cifar10",
                         help="Which downstream task.")
+    parser.add_argument("--data_dir", type=str, default="./data",
+                        help="Where to load data")
+    parser.add_argument("--num_workers", type=int, default=8,
+                        help="dataloader arguments")
     parser.add_argument("--model_type", choices=["ViT-B_16", "ViT-B_32", "ViT-L_16",
                                                  "ViT-L_32", "ViT-H_14", "R50-ViT-B_16"],
                         default="ViT-B_16",
                         help="Which variant to use.")
     parser.add_argument("--gpu", type=str, default="0",
                         help="choose gpus for training, e.g., --gpu 0,1,2,3 ")
-    parser.add_argument("--resume", action='store_true',
+    parser.add_argument("--resume_path", type=str, default="",
                         help="whether to resume training from a specific checkpoint")
-    parser.add_argument("--ckpt_path", default="", type=str,
-                        help="checkpoint path for resume training")
     parser.add_argument("--pretrained_dir", type=str, default="checkpoint/ViT-B_16.npz",
                         help="Where to load the pretrained ViT models, deprecated when resume is True")
     parser.add_argument("--output_dir", default="output", type=str,
@@ -366,10 +369,10 @@ def main():
     set_seed(args)
 
     # Model & Tokenizer Setup
-    args, model, optimizer, scheduler, start_steps = setup(args)
+    args, model, optimizer, scheduler, start_steps, best_acc = setup(args)
 
     # Training
-    train(args, model, optimizer, scheduler, start_steps)
+    train(args, model, optimizer, scheduler, start_steps, best_acc)
 
 
 if __name__ == "__main__":

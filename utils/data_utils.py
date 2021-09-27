@@ -1,5 +1,6 @@
 import logging
 import os
+import torch
 
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
@@ -15,19 +16,21 @@ class _DataLoader(DataLoader):
         # define transform
         if split == 'train':
             transform = transforms.Compose([
-                transforms.Resize((args.image_size, args.image_size)),
+                transforms.Resize((args.img_size, args.img_size)),
                 transforms.RandomHorizontalFlip(),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
             ])
         else:
             transform = transforms.Compose([
-                transforms.Resize((args.image_size, args.image_size)),
+                transforms.Resize((args.img_size, args.img_size)),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
             ])
 
         # define dataset
+        if args.local_rank not in [-1, 0]:
+            torch.distributed.barrier()
         if args.dataset == "cifar10":
             self.dataset = CIFAR10(root=args.data_dir, train=True if split=="train" else False, transform=transform, download=True)
         elif args.dataset == "cifar100":
@@ -36,7 +39,9 @@ class _DataLoader(DataLoader):
             self.dataset = ImageFolder(root=os.path.join(args.data_dir, split), transform=transform)
         else:
             raise NotImplementedError("We only support cifar10, cifar100, imagenet2012 now")
-        
+        if args.local_rank == 0:
+            torch.distributed.barrier()
+
         # define sampler
         if split == 'train':
             self.sampler = RandomSampler(self.dataset) if args.local_rank == -1 else DistributedSampler(self.dataset)
