@@ -5,9 +5,9 @@ We rebuild the original repo [ViT-pytorch](https://github.com/jeonsworld/ViT-pyt
 We modify the original repo from the following aspects:
 
 **Training**
-- [ ] Add `train.sh` for a quick start instead of long training scripts
+- [x] Add `train.sh` for a quick start instead of long training scripts
 - [x] Add `Resume Training`
-- [ ] Save model checkpoint to specific named folder
+- [x] Save model checkpoint to specific named folder
 - [ ] Add `Contiguous Tensor` for faster training
 - [ ] Add DDP Validation to balance the GPU memory
 - [ ] ~~Rebuild config file in a cleaner way~~
