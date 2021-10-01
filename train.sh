@@ -3,16 +3,18 @@ set -aux
 DATASET="cifar100"
 MODEL_TYPE="ViT-B_16"
 IMG_SIZE=224
-NAME="Test_Resume"
+NAME="quick_train_cifar100"
 GPUS="0,1"
-TRAIN_BATCH_SIZE=8
+TRAIN_BATCH_SIZE=256
 EVAL_BATCH_SIZE=8
-GRAD_STEPS=2
+GRAD_STEPS=64
 NUM_STEPS=500
 WARMUP_STEPS=100
 DECAY_TYPE="cosine"
-RESUME_PATH="/home/rentianhe/code/ViT-pytorch/output/Baseline/steps=100_checkpoint.ckpt"
-# PRETRAINED_DIR=""
+
+# Note that if you set RESUME_PATH, the PRETRAINED_DIR will be deprecated
+RESUME_PATH=""
+PRETRAINED_DIR="checkpoint/ViT-B_16.npz"
 
 
 
@@ -36,6 +38,6 @@ python -m torch.distributed.launch --nproc_per_node=$NPROC_PER_NODE --master_por
                                                                              --model_type $MODEL_TYPE \
                                                                              --img_size $IMG_SIZE \
                                                                              --dataset $DATASET \
-                                                                             --resume_path $RESUME_PATH \
-                                                                           #    --pretrained_dir $PRETRAINED_DIR \
+                                                                           #   --resume_path $RESUME_PATH \
+                                                                             --pretrained_dir $PRETRAINED_DIR \
                                                                                                                         

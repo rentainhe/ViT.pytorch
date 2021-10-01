@@ -116,7 +116,7 @@ def setup(args):
         model, optimizer, scheduler, start_steps, best_acc = load_from_checkpoint(args, model, optimizer, scheduler)
     else:
         if args.pretrained_dir:
-            print("Load from pretrained weight for fine-tuning")
+            print("Load from {} for fine-tuning".format(args.pretrained_dir))
             model.load_from(np.load(args.pretrained_dir))
         else:
             print("Train from scratch")
