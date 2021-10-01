@@ -8,8 +8,8 @@ We modify the original repo from the following aspects:
 - [x] Add `train.sh` for a quick start instead of long training scripts
 - [x] Add `Resume Training`
 - [x] Save model checkpoint to specific named folder
-- [ ] Add `Contiguous Tensor` for faster training
-- [ ] Add DDP Validation to balance the GPU memory
+- [x] Add `Contiguous Tensor` for faster training
+- [x] Add DDP Validation to balance the GPU memory
 - [ ] ~~Rebuild config file in a cleaner way~~
 
 **Dataset**

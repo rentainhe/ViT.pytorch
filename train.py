@@ -22,6 +22,8 @@ from utils.scheduler import WarmupLinearSchedule, WarmupCosineSchedule
 from utils.data_utils import get_loader
 from utils.dist_util import get_world_size
 
+from contiguous_params import ContiguousParams
+
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +102,8 @@ def setup(args):
 
     model = VisionTransformer(config, args.img_size, zero_head=True, num_classes=num_classes)
     model.to(args.device)
-    optimizer = torch.optim.SGD(model.parameters(),
+    model_parameters = ContiguousParams(model.parameters())
+    optimizer = torch.optim.SGD(model_parameters.contiguous(),
                                 lr=args.learning_rate,
                                 momentum=0.9,
                                 weight_decay=args.weight_decay)
@@ -212,10 +215,13 @@ def train(args, model, optimizer, scheduler, start_steps, best_acc):
                                           opt_level=args.fp16_opt_level)
         amp._amp_state.loss_scalers[0]._loss_scale = 2**20
 
+    contiguous_model_parameters = ContiguousParams(model.parameters())
+
     # Distributed training
     if args.local_rank != -1:
         model = DDP(model, message_size=250000000, gradient_predivide_factor=get_world_size())
 
+    
     # Train!
     logger.info("***** Running training *****")
     logger.info("  Total optimization steps = %d", args.num_steps)
@@ -256,11 +262,11 @@ def train(args, model, optimizer, scheduler, start_steps, best_acc):
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                 else:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                    torch.nn.utils.clip_grad_norm_(contiguous_model_parameters.contiguous(), args.max_grad_norm)
                 scheduler.step()
-                # from ipdb import set_trace; set_trace()
                 optimizer.step()
                 optimizer.zero_grad()
+                contiguous_model_parameters.assert_buffer_is_valid()
                 global_step += 1
 
                 epoch_iterator.set_description(
