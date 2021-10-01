@@ -75,7 +75,7 @@ The directory structure is the standard layout for the torchvision [`datasets.Im
 <details>
 <summary> <b> Train Model </b> </summary>
 
-### 1. Run `train.sh` for quick start
+#### Run `train.sh` for quick start
 ```
 $ bash train.sh
 ```
@@ -96,8 +96,9 @@ you can customize `train.sh` by yourself, relative configs:
 
 CIFAR-10 and CIFAR-100 are automatically download and train. In order to use a different dataset you need to customize [data_utils.py](./utils/data_utils.py).
 
-The default batch size is 512. When GPU memory is insufficient, you can proceed with training by adjusting the value of `--gradient_accumulation_steps`.
+The default batch size is 512. When GPU memory is insufficient, you can proceed with training by adjusting the value of `GRAD_STEPS` in [train.sh](train.sh).
 
+#### Run `train_fp16.sh` for mixed precision training
 Also can use [Automatic Mixed Precision(Amp)](https://nvidia.github.io/apex/amp.html) to reduce memory usage and train faster
 ```
 $ bash train_fp16.sh
