@@ -98,10 +98,12 @@ CIFAR-10 and CIFAR-100 are automatically download and train. In order to use a d
 
 The default batch size is 512. When GPU memory is insufficient, you can proceed with training by adjusting the value of `--gradient_accumulation_steps`.
 
-<!-- Also can use [Automatic Mixed Precision(Amp)](https://nvidia.github.io/apex/amp.html) to reduce memory usage and train faster
+Also can use [Automatic Mixed Precision(Amp)](https://nvidia.github.io/apex/amp.html) to reduce memory usage and train faster
 ```
-python3 train.py --name cifar10-100_500 --dataset cifar10 --model_type ViT-B_16 --pretrained_dir checkpoint/ViT-B_16.npz --fp16 --fp16_opt_level O2
-``` -->
+$ bash train_fp16.sh
+```
+Additional configs:
+- `FP16_OPT_LEVEL`: mixed precision training level from {`O0`, `O1`, `O2`, `O3`}
 
 </details>
 

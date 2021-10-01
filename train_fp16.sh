@@ -3,7 +3,7 @@ set -aux
 DATASET="cifar100"
 MODEL_TYPE="ViT-B_16"
 IMG_SIZE=224
-NAME="test_contiguous"
+NAME="default_fp16"
 GPUS="0,1"
 TRAIN_BATCH_SIZE=256
 EVAL_BATCH_SIZE=8
