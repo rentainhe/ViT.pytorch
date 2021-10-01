@@ -73,8 +73,8 @@ def save_checkpoint(args, model, optimizer, scheduler, steps, best_acc, checkpoi
 def load_from_checkpoint(args, model, optimizer, scheduler):
     if not args.resume_path:
         raise NotImplementedError("args.resume_path must not be None")
-    # if args.local_rank not in [-1, 0]:
-    #         torch.distributed.barrier()
+    if args.local_rank not in [-1, 0]:
+            torch.distributed.barrier()
     ckpt = torch.load(args.resume_path, map_location=torch.device("cpu"))
     model.load_state_dict(ckpt['state_dict'])
     optimizer.load_state_dict(ckpt['optimizer'])
@@ -82,8 +82,8 @@ def load_from_checkpoint(args, model, optimizer, scheduler):
     start_steps = ckpt['steps']
     best_acc = ckpt['best_acc']
     print("Finish!")
-    # if args.local_rank == 0:
-    #         torch.distributed.barrier()
+    if args.local_rank == 0:
+            torch.distributed.barrier()
     return model, optimizer, scheduler, start_steps, best_acc
     
 
@@ -118,12 +118,13 @@ def setup(args):
         if args.pretrained_dir:
             print("Load from pretrained weight for fine-tuning")
             model.load_from(np.load(args.pretrained_dir))
+        else:
+            print("Train from scratch")
 
     num_params = count_parameters(model)
     logger.info("{}".format(config))
     logger.info("Training parameters %s", args)
     logger.info("Total Parameter: \t%2.1fM" % num_params)
-    print(num_params)
     return args, model, optimizer, scheduler, start_steps, best_acc
 
 

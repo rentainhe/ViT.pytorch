@@ -42,4 +42,4 @@ To verify that the converted model weight is correct, we simply compare it with 
 | imagenet21k | ViT-B_16 | CIFAR-100 |          500/100          |    0.8917     |     0.9072     |
 | imagenet21k | ViT-B_16 | CIFAR-100 |         1000/100          |    0.9115     |     0.9216     |
 
-## ImageNet2012
+## ImageNet

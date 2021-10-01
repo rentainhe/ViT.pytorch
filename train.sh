@@ -24,17 +24,18 @@ NPROC_PER_NODE=${#USED_GPU[@]}
 IFS=''
 MASTER_PORT=12345
 
-python -m torch.distributed.launch --nproc_per_node=$NPROC_PER_NODE --master_port $MASTER_PORT train.py --name $NAME \
-                                                                                                           --gpu $GPUS \
-                                                                                                           --train_batch_size $TRAIN_BATCH_SIZE \
-                                                                                                           --eval_batch_size $EVAL_BATCH_SIZE \
-                                                                                                           --num_steps $NUM_STEPS \
-                                                                                                           --decay_type $DECAY_TYPE \
-                                                                                                           --warmup_steps $WARMUP_STEPS \
-                                                                                                           --gradient_accumulation_steps $GRAD_STEPS \
-                                                                                                           --model_type $MODEL_TYPE \
-                                                                                                           --img_size $IMG_SIZE \
-                                                                                                           --dataset $DATASET \
-                                                                                                           --resume_path $RESUME_PATH \
-                                                                                                        #    --pretrained_dir $PRETRAINED_DIR \
-                                                                                                              
+python -m torch.distributed.launch --nproc_per_node=$NPROC_PER_NODE --master_port $MASTER_PORT \
+                                                                    train.py --name $NAME \
+                                                                             --gpu $GPUS \
+                                                                             --train_batch_size $TRAIN_BATCH_SIZE \
+                                                                             --eval_batch_size $EVAL_BATCH_SIZE \
+                                                                             --num_steps $NUM_STEPS \
+                                                                             --decay_type $DECAY_TYPE \
+                                                                             --warmup_steps $WARMUP_STEPS \
+                                                                             --gradient_accumulation_steps $GRAD_STEPS \
+                                                                             --model_type $MODEL_TYPE \
+                                                                             --img_size $IMG_SIZE \
+                                                                             --dataset $DATASET \
+                                                                             --resume_path $RESUME_PATH \
+                                                                           #    --pretrained_dir $PRETRAINED_DIR \
+                                                                                                                        

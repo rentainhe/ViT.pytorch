@@ -1,6 +1,7 @@
 import logging
 import os
 import torch
+import torch.distributed as dist
 
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100, ImageFolder
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 class _DataLoader(DataLoader):
     def __init__(self, args, split='train', batch_size=16, num_workers=8):
         self.args = args
+        self.num_tasks = dist.get_world_size()
         # define transform
         if split == 'train':
             transform = transforms.Compose([
@@ -46,7 +48,14 @@ class _DataLoader(DataLoader):
         if split == 'train':
             self.sampler = RandomSampler(self.dataset) if args.local_rank == -1 else DistributedSampler(self.dataset)
         else:
-            self.sampler = SequentialSampler(self.dataset)
+            # TODO: try a dist val sampler here
+            if len(self.dataset) % self.num_tasks != 0:
+                print('Warning: Enabling distributed evaluation with an eval dataset not divisible by process number. '
+                      'This will slightly alter validation results as extra duplicate entries are added to achieve '
+                      'equal num of samples per-process.')
+            self.sampler = DistributedSampler(self.dataset, num_replicas=self.num_tasks, rank=args.local_rank, shuffle=False)
+
+            # self.sampler = SequentialSampler(self.dataset)
     
         super(_DataLoader, self).__init__(
             dataset=self.dataset,
