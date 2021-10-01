@@ -366,6 +366,7 @@ def main():
         torch.distributed.init_process_group(backend='nccl',
                                              timeout=timedelta(minutes=60))
         args.n_gpu = 1
+
     args.device = device
 
     # Setup logging
